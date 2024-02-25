@@ -6,6 +6,10 @@ from windrose import WindroseAxes
 import yaml
 from scipy.interpolate import interp1d
 
+"""
+This example creates the .yaml file needed to compute wind resources of the site based on multi-year raw wind data.
+"""
+
 TEST_NAME = '01_energy_resource_Humboldt'
 NSECTOR = 180
 
