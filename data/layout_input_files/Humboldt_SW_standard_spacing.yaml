@@ -1,0 +1,13 @@
+name: Humboldt SW (Fixed Spacing)
+turbine: "IEA15MW"
+boundary_file_path: "Data/layouts/farm_boundary/Humboldt SW.csv"
+farm properties:
+    capacity: 1000  # [MW]
+    Dspacingx: 5  # [-]
+    Dspacingy: 5  # [-]
+    orientation: 0  # [deg]
+    skew factor: 0  # [-]
+    mooring line spread radius: 1500  # [m]
+    
+    
+    

@@ -1,5 +1,7 @@
+from shapely.geometry import Point, Polygon
 import pandas as pd
 from data.turbines.iea15mw.iea15mw import IEA15MW
+import matplotlib.path as mpath
 import yaml
 import numpy as np
 from scipy.interpolate import NearestNDInterpolator
@@ -22,12 +24,24 @@ from py_wake.deficit_models import (NOJDeficit,
 
 class Farm:
     def __init__(self):
+        self.max_capacity = None
+        self.turbine_ct = None
+        self.polygon = None
+        self.polygon_points = None
+        self.oboundary_x = None
+        self.oboundary_y = None
+        self.boundary_x = None
+        self.boundary_y = None
         self.layout_x = None
         self.layout_y = None
         self.turbine = None
         self.site = None
         self.wf_model = None
         self.sim_res = None
+        self.capacity = None
+        self.orient = None
+        self.spacing_x = None
+        self.spacing_y = None
 
     def load_layout_from_file(self, layout_file_path):
         """
@@ -38,8 +52,145 @@ class Farm:
         self.layout_x = list(df["layout_x"])
         self.layout_y = list(df["layout_y"])
 
-    def create_layout(self, boundary_file_path):
+    def create_layout(self, layout_type, layout_properties_file):
+        if layout_type=="standard":
+            self.standard_layout(layout_properties_file)
+        else:
+            raise ValueError("The layout type specified is not supported!")
         pass
+
+    def farm_boundaries(self, boundary_file_path):
+        boundary = pd.read_csv(boundary_file_path)
+        self.boundary_x = list(boundary['boundary_x'])
+        self.boundary_y = list(boundary['boundary_y'])
+        self.oboundary_x = list(boundary['boundary_x'])
+        self.oboundary_y = list(boundary['boundary_y'])
+        self.polygon_points = list(zip(self.boundary_x, self.boundary_y))
+        self.polygon = mpath.Path(self.polygon_points)
+        self.complex_polygon()
+
+    def complex_polygon(self):
+        self.centroid = np.mean(self.polygon_points, axis=0)
+
+        def sort_by_angle(point):
+            return np.arctan2(point[1] - self.centroid[1], point[0] - self.centroid[0])
+
+        self.polygon_points = sorted(self.polygon_points, key=sort_by_angle)
+        self.boundary_x = [point[0] for point in self.polygon_points]
+        self.boundary_y = [point[1] for point in self.polygon_points]
+        self.polygon = mpath.Path(self.polygon_points)
+
+    def standard_layout(self, layout_properties_file):
+        with open(layout_properties_file, 'r') as file:
+            layout_data = yaml.safe_load(file)
+
+        # turbine selection
+        turbine_type = layout_data["turbine"]
+        self.turbine_selection(turbine_type)
+
+        # farm boundaries
+        self.farm_boundaries(layout_data["boundary_file_path"])
+
+        # farm properties
+        farm_properties = layout_data["farm properties"]
+        cap = farm_properties["capacity"]  # [MW]
+        Dsx = farm_properties["Dspacingx"]  # [-]
+        Dsy = farm_properties["Dspacingy"]  # [-]
+        ori = farm_properties["orientation"]  # [deg]
+        skw = farm_properties["skew factor"]  # [-]
+        msr = farm_properties["mooring line spread radius"]  # [m]
+
+        pow = self.turbine.power(ws=20) / 1e6  # [MW]
+        ori_r = np.deg2rad(ori)  # [rad]
+        turbine_ct = int(cap/pow)
+
+        # farm center
+        farm_center_x = self.centroid[0]
+        farm_center_y = self.centroid[1]
+        smallest_x = min(self.boundary_x)
+        largest_x = max(self.boundary_x)
+        smallest_y = min(self.boundary_y)
+        largest_y = max(self.boundary_y)
+        magnify = 1.1
+
+        spacing_x = Dsx * self.turbine.diameter()
+        spacing_y = Dsy * self.turbine.diameter()
+        x = np.arange((smallest_x - farm_center_x) * magnify, (farm_center_x + largest_x) * magnify, spacing_x)
+        y = np.arange((smallest_y - farm_center_y) * magnify, (farm_center_y + largest_y) * magnify, spacing_y)
+
+        layout_x = np.zeros((len(x), len(y)))
+        layout_y = np.zeros((len(x), len(y)))
+        for i, xi in enumerate(x):
+            for j, yi in enumerate(y):
+                layout_x[i, j] = xi
+                layout_y[i, j] = yi
+
+        # Apply theta and skew factor to the generated points
+        layout_x = layout_x.flatten()
+        layout_y = layout_y.flatten()
+        skewed_x_BL = [x + skw * y for x, y in zip(layout_x, layout_y)]
+        skewed_y_BL = layout_y  # y-coordinates remain the same
+
+        # Create the rotation matrix
+        rotation_matrix = np.array([[np.cos(ori_r), -np.sin(ori_r)],
+                                    [np.sin(ori_r), np.cos(ori_r)]])
+
+        # Stack your coordinates in a (2, N) array where N is the number of points
+        points = np.vstack((skewed_x_BL, skewed_y_BL))
+        translated_points = points - np.array([[farm_center_x], [farm_center_y]])
+
+        # Apply the rotation matrix to all points
+        rotated_translated_points = np.dot(rotation_matrix, translated_points)
+        rotated_points = rotated_translated_points + np.array([[farm_center_x], [farm_center_y]])
+
+        # Split the rotated points back into x and y arrays
+        oriented_x = rotated_points[0, :]
+        oriented_y = rotated_points[1, :]
+
+        layout_points = np.column_stack((oriented_x, oriented_y))
+        inside = self.polygon.contains_points(layout_points)
+        layout_x = oriented_x[inside]
+        layout_y = oriented_y[inside]
+
+        # mooring line spread calculation
+        # Calculate the distance of each point to the polygon edge
+        polygon = Polygon(zip(self.boundary_x, self.boundary_y))
+        turbines_with_distances = [(polygon.exterior.distance(Point(x, y)), x, y, idx)
+                                   for idx, (x, y) in enumerate(zip(layout_x, layout_y))]
+
+        # Sort the turbines by their distance to the edge (closest first)
+        turbines_sorted_by_edge_proximity = sorted(turbines_with_distances, key=lambda x: x[0])
+
+        turbines_msr = [turbine for turbine in turbines_sorted_by_edge_proximity if turbine[0] >= msr]
+        layout_x, layout_y = zip(*[(x, y) for _, x, y, _ in turbines_msr])
+
+        # Maximum capacity
+        self.max_capacity = len(layout_x) * pow
+        print(f"maximum capacity that can fit in the site is {self.max_capacity} MW ({len(layout_x)} turbines)")
+
+        # turbine count:
+        if len(layout_x) < turbine_ct:
+            raise ValueError("Based on the given farm properties, it is not possible to fit the requested capacity"
+                             " inside the given site boundaries")
+        else:
+            selected_turbines = turbines_sorted_by_edge_proximity[-turbine_ct:]
+
+            # Extract the x, y coordinates and original indices of the selected turbines
+            selected_turbines_with_index = [(x, y, idx) for _, x, y, idx in selected_turbines]
+
+            # Re-sort the selected turbines to their original order
+            selected_turbines_sorted_back = sorted(selected_turbines_with_index, key=lambda x: x[2])
+
+            # Extract the re-sorted x and y coordinates
+            layout_x, layout_y = zip(*[(x, y) for x, y, _ in selected_turbines_sorted_back])
+            layout_x, layout_y = np.array(layout_x), np.array(layout_y)
+
+        self.layout_x, self.layout_y = layout_x, layout_y
+        self.turbine_ct = len(layout_x)
+        self.spacing_x = Dsx
+        self.spacing_y = Dsy
+        self.orient = ori
+        self.capacity = self.turbine_ct * pow
 
     def turbine_selection(self, turbine_type):
         if turbine_type=="IEA15MW":
@@ -76,6 +227,7 @@ class Farm:
             wake_effects = (aep_without_wake - aep_with_wake)/(aep_without_wake) * 1e2
 
             return aep_without_wake, aep_with_wake, wake_effects
+
 
 
 class WindResources:
