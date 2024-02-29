@@ -2,6 +2,7 @@ import numpy as np
 from trtle.farmpy import Farm
 import os
 import matplotlib.pyplot as plt
+from data.turbines.iea15mw.iea15mw import IEA15MW
 """
 This example creates a wind farm via importing the layout from an external file and computes the wake effects and AEP
 excluding watch circle computation.
@@ -20,7 +21,8 @@ os.makedirs(out_dir, exist_ok=True)
 
 farm = Farm()
 farm.load_layout_from_file(LAYOUT_FILE_PATH)
-farm.turbine_selection(turbine_type="IEA15MW")
+farm.WTG = IEA15MW()
+farm.populate_turbine_keys(msrs=np.zeros(len(farm.layout_x) + 1400))
 farm.complex_site(WIND_RESOURCE_FILE_PATH)
 aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
 

@@ -24,6 +24,7 @@ from py_wake.deficit_models import (NOJDeficit,
 
 class Farm:
     def __init__(self):
+        self.turbines = {}
         self.max_capacity = None
         self.turbine_ct = None
         self.polygon = None
@@ -34,7 +35,7 @@ class Farm:
         self.boundary_y = None
         self.layout_x = None
         self.layout_y = None
-        self.turbine = None
+        self.WTG = None
         self.site = None
         self.wf_model = None
         self.sim_res = None
@@ -86,7 +87,10 @@ class Farm:
 
         # turbine selection
         turbine_type = layout_data["turbine"]
-        self.turbine_selection(turbine_type)
+
+        # initialize first turbine
+        if turbine_type == "IEA15MW":
+            self.WTG = IEA15MW()
 
         # farm boundaries
         self.farm_boundaries(layout_data["boundary_file_path"])
@@ -100,9 +104,9 @@ class Farm:
         skw = farm_properties["skew factor"]  # [-]
         msr = farm_properties["mooring line spread radius"]  # [m]
 
-        pow = self.turbine.power(ws=20) / 1e6  # [MW]
+        pow = self.WTG.power(ws=20) / 1e6  # [MW]
         ori_r = np.deg2rad(ori)  # [rad]
-        turbine_ct = int(cap/pow)
+        turbine_ct = int(round(cap/pow, 0))
 
         # farm center
         farm_center_x = self.centroid[0]
@@ -113,8 +117,8 @@ class Farm:
         largest_y = max(self.boundary_y)
         magnify = 1.1
 
-        spacing_x = Dsx * self.turbine.diameter()
-        spacing_y = Dsy * self.turbine.diameter()
+        spacing_x = Dsx * self.WTG.diameter()
+        spacing_y = Dsy * self.WTG.diameter()
         x = np.arange((smallest_x - farm_center_x) * magnify, (farm_center_x + largest_x) * magnify, spacing_x)
         y = np.arange((smallest_y - farm_center_y) * magnify, (farm_center_y + largest_y) * magnify, spacing_y)
 
@@ -172,7 +176,7 @@ class Farm:
         if len(layout_x) < turbine_ct:
             raise ValueError("Based on the given farm properties, it is not possible to fit the requested capacity"
                              " inside the given site boundaries")
-        else:
+        elif len(layout_x) > turbine_ct:
             selected_turbines = turbines_sorted_by_edge_proximity[-turbine_ct:]
 
             # Extract the x, y coordinates and original indices of the selected turbines
@@ -192,9 +196,30 @@ class Farm:
         self.orient = ori
         self.capacity = self.turbine_ct * pow
 
-    def turbine_selection(self, turbine_type):
-        if turbine_type=="IEA15MW":
-            self.turbine = IEA15MW()
+        msrs = np.zeros(len(self.layout_x)) + msr
+        self.populate_turbine_keys(msrs)
+
+    def populate_turbine_keys(self, msrs):
+        for idx, (x, y, msr) in enumerate(zip(self.layout_x, self.layout_y, msrs)):
+            self.turbines[idx] = {
+                'ID': idx,
+                'WTG': self.WTG,  # Assuming the same WTG is used for all turbines; adjust if it varies
+                'x': x,
+                'y': y,
+                'water_depth': self.calculate_water_depth(x, y),  # Placeholder for actual calculation
+                'msr': msr,
+                'pow': self.WTG.power(ws=20) / 1e6  # Example power calculation; adjust as needed
+            }
+
+    def add_update_turbine_keys(self, turbine_id, attribute_name, value):
+        if turbine_id in self.turbines:
+            self.turbines[turbine_id][attribute_name] = value
+        else:
+            print(f"Turbine with ID {turbine_id} does not exist.")
+
+    def calculate_water_depth(self, x, y):
+        water_depth = 800  # Hard-coded
+        return water_depth
 
     def complex_site(self, wind_resource_file_path):
         wind_resources = WindResources(wind_resource_file_path)
@@ -210,8 +235,24 @@ class Farm:
                 data_vars={'P': (('wd', 'ws'), freq), 'TI': ti},
                 coords={'ws': list(ws_array), 'wd': wd_array}))
 
+    def polygon_area(self):  # only works for square for now
+        """
+        Calculate the area of a polygon given its vertices.
+        :param vertices: A list of (x, y) tuples representing the vertices of the polygon
+        :return: The area of the polygon
+        """
+        n = len(self.polygon_points)
+        area = 0.0
+
+        for i in range(n):
+            j = (i + 1) % n
+            area += self.polygon_points[i][0] * self.polygon_points[j][1]
+            area -= self.polygon_points[j][0] * self.polygon_points[i][1]
+
+        self.area = abs(area / 1e6) / 2.0  # km
+
     def wake_model(self, watch_circle=False):
-        self.wf_model = Niayifar_PorteAgel_2016(self.site, self.turbine)
+        self.wf_model = Niayifar_PorteAgel_2016(self.site, self.WTG)
         if watch_circle:
             pass
         else:
@@ -227,7 +268,6 @@ class Farm:
             wake_effects = (aep_without_wake - aep_with_wake)/(aep_without_wake) * 1e2
 
             return aep_without_wake, aep_with_wake, wake_effects
-
 
 
 class WindResources:
