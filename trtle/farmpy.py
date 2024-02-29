@@ -53,9 +53,18 @@ class Farm:
         self.layout_x = list(df["layout_x"])
         self.layout_y = list(df["layout_y"])
 
-    def create_layout(self, layout_type, layout_properties_file):
-        if layout_type=="standard":
-            self.standard_layout(layout_properties_file)
+    def create_layout(self, layout_type, layout_properties):
+        # turbine selection
+        turbine_type = layout_properties["turbine"]
+
+        # initialize first turbine
+        if turbine_type == "IEA15MW":
+            self.WTG = IEA15MW()
+
+        # farm boundaries
+        self.farm_boundaries(layout_properties["boundary_file_path"])
+        if layout_type == "standard":
+            self.standard_layout(layout_properties["farm properties"])
         else:
             raise ValueError("The layout type specified is not supported!")
         pass
@@ -81,22 +90,8 @@ class Farm:
         self.boundary_y = [point[1] for point in self.polygon_points]
         self.polygon = mpath.Path(self.polygon_points)
 
-    def standard_layout(self, layout_properties_file):
-        with open(layout_properties_file, 'r') as file:
-            layout_data = yaml.safe_load(file)
+    def standard_layout(self, farm_properties):
 
-        # turbine selection
-        turbine_type = layout_data["turbine"]
-
-        # initialize first turbine
-        if turbine_type == "IEA15MW":
-            self.WTG = IEA15MW()
-
-        # farm boundaries
-        self.farm_boundaries(layout_data["boundary_file_path"])
-
-        # farm properties
-        farm_properties = layout_data["farm properties"]
         cap = farm_properties["capacity"]  # [MW]
         Dsx = farm_properties["Dspacingx"]  # [-]
         Dsy = farm_properties["Dspacingy"]  # [-]
@@ -218,6 +213,7 @@ class Farm:
             print(f"Turbine with ID {turbine_id} does not exist.")
 
     def calculate_water_depth(self, x, y):
+        # TODO: write a code to interpolate water depth based on batheymetry file
         water_depth = 800  # Hard-coded
         return water_depth
 

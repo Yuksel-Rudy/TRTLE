@@ -7,7 +7,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from trtle.farmpy import Farm
 
-TEST_NAME = "04_latlong_to_UTM"
+TEST_NAME = "05_latlong_to_UTM"
 this_dir = os.getcwd()
 example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)

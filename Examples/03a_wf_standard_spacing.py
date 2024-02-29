@@ -24,9 +24,14 @@ os.makedirs(out_dir, exist_ok=True)
 layout_properties_file = os.path.join(this_dir,
                                       "data",
                                       "layout_input_files",
-                                      "Humboldt_NE_sq_eq_standard_spacing_min_bound_dist.yaml")
+                                      "Humboldt_SW_sq_eq_standard_OPT.yaml")
+
+# Load initial layout properties
+with open(layout_properties_file, 'r') as file:
+    layout_properties = yaml.safe_load(file)
+
 farm = Farm()
-farm.create_layout(layout_type="standard", layout_properties_file=layout_properties_file)
+farm.create_layout(layout_type="standard", layout_properties=layout_properties)
 farm.complex_site(WIND_RESOURCE_FILE_PATH)
 aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
 print('Total power: %f GWh'%aep_with_wake)
@@ -38,20 +43,20 @@ wdir = 360-5
 flow_map = farm.sim_res.flow_map(grid=None, # defaults to HorizontalGrid(resolution=500, extend=0.2), see below
                                  wd=wdir,
                                  ws=wsp)
-plt.figure(figsize=(6, 12))
+plt.figure(figsize=(6, 6))
 flow_map.plot_wake_map(levels=10, cmap='jet', plot_colorbar=False, plot_windturbines=False, ax=None)
 plt.axis('equal')
 plt.xlabel("Easting [m]")
 plt.ylabel("Northing [m]")
 plt.title('Wake map for'+ f' {wdir} deg and {wsp} m/s')
-# plt.savefig(os.path.join(out_dir, f"wake_map_wd{wdir}deg_ws{wsp}mps.pdf"))
+# plt.savefig(os.path.join(out_dir, f"Humboldt_C_NE_sq_eq_wake_map_wd{wdir}deg_ws{wsp}mps_OPT.pdf"))
 
 
 # layout visualization
 # mooring line spread radius
 th = np.arange(0, 2.1 * np.pi, np.deg2rad(5))
 mpl.rcParams['font.family'] = 'Times New Roman'
-plt.figure(figsize=(6, 9))
+plt.figure(figsize=(6, 6))
 
 for turbine_id, turbine in farm.turbines.items():
     moorspreadx = turbine['msr'] * np.cos(th) + turbine['x']
@@ -64,11 +69,11 @@ for turbine_id, turbine in farm.turbines.items():
 plt.grid("True")
 plt.gca().set_axisbelow(True)
 plt.axis("equal")
-plt.scatter(farm.boundary_x, farm.boundary_y, label="farm boundary")
-plt.scatter(farm.layout_x, farm.layout_y, label="farm layout")
+plt.plot(farm.oboundary_x, farm.oboundary_y, label="farm boundary")
+plt.scatter(farm.layout_x, farm.layout_y, label="farm layout", color="black")
 plt.plot()
 plt.legend()
 plt.xlabel("Easting [m]")
 plt.ylabel("Northing [m]")
-# plt.savefig(os.path.join(out_dir, f"Humboldt_SW_standard_spacing_cap_{farm.capacity:.2f}"
+# plt.savefig(os.path.join(out_dir, f"Humboldt_C_NE_sq_eq_standard_spacing_cap_{farm.capacity:.2f}"
 #                                   f"_SX{farm.spacing_x}_SY{farm.spacing_y}_ori{farm.orient:.2f}.pdf"))

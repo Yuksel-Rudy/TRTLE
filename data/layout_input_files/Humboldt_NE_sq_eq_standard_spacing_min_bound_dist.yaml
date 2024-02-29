@@ -1,4 +1,4 @@
-name: Humboldt SW (Standard Spacing)
+name: Humboldt NE Square Equivalent (Standard Spacing)
 turbine: "IEA15MW"
 boundary_file_path: "Data/layouts/farm_boundary/Humboldt_C_NE_sq_eq.csv"
 farm properties:
