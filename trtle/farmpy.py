@@ -63,8 +63,11 @@ class Farm:
 
         # farm boundaries
         self.farm_boundaries(layout_properties["boundary_file_path"])
+
         if layout_type == "standard":
             self.standard_layout(layout_properties["farm properties"])
+        elif layout_type == "honeymooring":
+            self.honeymooring_layout(layout_properties["farm properties"])
         else:
             raise ValueError("The layout type specified is not supported!")
         pass
@@ -98,6 +101,7 @@ class Farm:
         ori = farm_properties["orientation"]  # [deg]
         skw = farm_properties["skew factor"]  # [-]
         msr = farm_properties["mooring line spread radius"]  # [m]
+        tbl = farm_properties["turbine-boundary limit"]  # [m]
 
         pow = self.WTG.power(ws=20) / 1e6  # [MW]
         ori_r = np.deg2rad(ori)  # [rad]
@@ -160,7 +164,7 @@ class Farm:
         # Sort the turbines by their distance to the edge (closest first)
         turbines_sorted_by_edge_proximity = sorted(turbines_with_distances, key=lambda x: x[0])
 
-        turbines_msr = [turbine for turbine in turbines_sorted_by_edge_proximity if turbine[0] >= msr]
+        turbines_msr = [turbine for turbine in turbines_sorted_by_edge_proximity if turbine[0] >= tbl]
         layout_x, layout_y = zip(*[(x, y) for _, x, y, _ in turbines_msr])
 
         # Maximum capacity
@@ -192,19 +196,139 @@ class Farm:
         self.capacity = self.turbine_ct * pow
 
         msrs = np.zeros(len(self.layout_x)) + msr
-        self.populate_turbine_keys(msrs)
+        tbls = np.zeros(len(self.layout_x)) + tbl
+        moris = np.zeros(len(self.layout_x))
+        self.populate_turbine_keys(tbls, msrs, moris)
 
-    def populate_turbine_keys(self, msrs):
-        for idx, (x, y, msr) in enumerate(zip(self.layout_x, self.layout_y, msrs)):
+    def honeymooring_layout(self, farm_properties):
+
+        cap = farm_properties["capacity"]  # [MW]
+        ori = farm_properties["orientation"]  # [deg]
+        msr = farm_properties["mooring line spread radius"]  # [m]
+        tbl = farm_properties["turbine-boundary limit"]  # [m]
+
+        pow = self.WTG.power(ws=20) / 1e6  # [MW]
+        ori_r = np.deg2rad(ori)  # [rad]
+        turbine_ct = int(round(cap/pow, 0))
+
+        # farm center
+        farm_center_x = self.centroid[0]
+        farm_center_y = self.centroid[1]
+        smallest_x = min(self.boundary_x)
+        largest_x = max(self.boundary_x)
+        smallest_y = min(self.boundary_y)
+        largest_y = max(self.boundary_y)
+        magnify = 1.1
+
+        x_even = np.arange((smallest_x - farm_center_x) * magnify,
+                           (farm_center_x + largest_x) * magnify,
+                           2 * msr * np.cos(np.deg2rad(30)))
+
+        x_odd = x_even + (msr * np.cos(np.deg2rad(30)))
+
+        y = np.arange((smallest_y - farm_center_y) * magnify,
+                      (farm_center_y + largest_y) * magnify,
+                      1.5 * msr)
+
+        layout_x = np.zeros((2 * len(x_even), len(y)))
+        layout_y = np.zeros((2 * len(x_even), len(y)))
+        for j, yi in enumerate(y):
+            if np.remainder(j, 2) == 0:
+                for i, xi in enumerate(x_even):
+                    layout_x[i, j] = xi
+                    layout_y[i, j] = yi
+            else:
+                for i, xi in enumerate(x_odd):
+                    layout_x[i, j] = xi
+                    layout_y[i, j] = yi
+
+        # Apply theta and to the generated points
+        layout_x = layout_x.flatten()
+        layout_y = layout_y.flatten()
+
+        # Create the rotation matrix
+        rotation_matrix = np.array([[np.cos(ori_r), -np.sin(ori_r)],
+                                    [np.sin(ori_r), np.cos(ori_r)]])
+
+        # Stack your coordinates in a (2, N) array where N is the number of points
+        points = np.vstack((layout_x, layout_y))
+        translated_points = points - np.array([[farm_center_x], [farm_center_y]])
+
+        # Apply the rotation matrix to all points
+        rotated_translated_points = np.dot(rotation_matrix, translated_points)
+        rotated_points = rotated_translated_points + np.array([[farm_center_x], [farm_center_y]])
+
+        # Split the rotated points back into x and y arrays
+        oriented_x = rotated_points[0, :]
+        oriented_y = rotated_points[1, :]
+
+        layout_points = np.column_stack((oriented_x, oriented_y))
+        inside = self.polygon.contains_points(layout_points)
+        layout_x = oriented_x[inside]
+        layout_y = oriented_y[inside]
+
+        # mooring line spread calculation
+        # Calculate the distance of each point to the polygon edge
+        polygon = Polygon(zip(self.boundary_x, self.boundary_y))
+        turbines_with_distances = [(polygon.exterior.distance(Point(x, y)), x, y, idx)
+                                   for idx, (x, y) in enumerate(zip(layout_x, layout_y))]
+
+        # Sort the turbines by their distance to the edge (closest first)
+        turbines_sorted_by_edge_proximity = sorted(turbines_with_distances, key=lambda x: x[0])
+
+        turbines_msr = [turbine for turbine in turbines_sorted_by_edge_proximity if turbine[0] >= tbl]
+        layout_x, layout_y = zip(*[(x, y) for _, x, y, _ in turbines_msr])
+        layout_x, layout_y = np.array(layout_x), np.array(layout_y)
+
+        # Maximum capacity
+        self.max_capacity = len(layout_x) * pow
+        print(f"maximum capacity that can fit in the site is {self.max_capacity} MW ({len(layout_x)} turbines)")
+
+        # turbine count:
+        if len(layout_x) < turbine_ct:
+            raise ValueError("Based on the given farm properties, it is not possible to fit the requested capacity"
+                             " inside the given site boundaries")
+        elif len(layout_x) > turbine_ct:
+            selected_turbines = turbines_sorted_by_edge_proximity[-turbine_ct:]
+
+            # Extract the x, y coordinates and original indices of the selected turbines
+            selected_turbines_with_index = [(x, y, idx) for _, x, y, idx in selected_turbines]
+
+            # Re-sort the selected turbines to their original order
+            selected_turbines_sorted_back = sorted(selected_turbines_with_index, key=lambda x: x[2])
+
+            # Extract the re-sorted x and y coordinates
+            layout_x, layout_y = zip(*[(x, y) for x, y, _ in selected_turbines_sorted_back])
+            layout_x, layout_y = np.array(layout_x), np.array(layout_y)
+
+        self.layout_x, self.layout_y = layout_x, layout_y
+        self.turbine_ct = len(layout_x)
+        self.orient = ori
+        self.capacity = self.turbine_ct * pow
+
+        msrs = np.zeros(len(self.layout_x)) + msr
+        tbls = np.zeros(len(self.layout_x)) + tbl
+        moris = np.zeros(len(self.layout_x))
+        self.populate_turbine_keys(tbls, msrs, moris)
+
+    def populate_turbine_keys(self, tbls, msrs, moris):
+        for idx, (x, y, tbl, msr, mori) in enumerate(zip(self.layout_x, self.layout_y, tbls, msrs, moris)):
             self.turbines[idx] = {
-                'ID': idx,
-                'WTG': self.WTG,  # Assuming the same WTG is used for all turbines; adjust if it varies
-                'x': x,
-                'y': y,
-                'water_depth': self.calculate_water_depth(x, y),  # Placeholder for actual calculation
-                'msr': msr,
-                'pow': self.WTG.power(ws=20) / 1e6  # Example power calculation; adjust as needed
+                'ID': idx,  # turbine ID
+                'WTG': self.WTG,  # wind turbine generator type
+                'x': x,  # x-location of the turbine
+                'y': y,  # y-location of the turbine
+                'water_depth': self.calculate_water_depth(x, y),  # water depth (placeholder for now)
+                'msr': msr,  # mooring spread radius
+                'tbl': tbl,  # turbine-boundary limit
+                'mori': mori,
+                'pow': self.WTG.power(ws=20) / 1e6  # Power of the turbine at above rated.
             }
+
+    def update_turbine_loc(self):
+        for idx, (x, y) in enumerate(zip(self.layout_x, self.layout_y)):
+            self.turbines[idx]["x"] = x
+            self.turbines[idx]["y"] = y
 
     def add_update_turbine_keys(self, turbine_id, attribute_name, value):
         if turbine_id in self.turbines:

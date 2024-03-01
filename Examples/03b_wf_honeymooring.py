@@ -10,7 +10,7 @@ In this example, a wind farm is created based on a boundary file, a list of farm
 (taking into consideration mooring line spread)
 """
 
-TEST_NAME = '03_wf_standard_spacing'
+TEST_NAME = '03_wf_honeymooring'
 WIND_RESOURCE_FILE_PATH = os.path.join("data", "energy_resources", "Humboldt", "wind_resource_Humboldt_nsector=180.yaml")
 # Directory manager
 this_dir = os.getcwd()
@@ -24,15 +24,20 @@ os.makedirs(out_dir, exist_ok=True)
 layout_properties_file = os.path.join(this_dir,
                                       "data",
                                       "layout_input_files",
-                                      "Humboldt_NE_sq_eq_standard_OPT2.yaml")
+                                      "Humboldt_NE_sq_eq_honeymooring_OPT.yaml")
 
 # Load initial layout properties
 with open(layout_properties_file, 'r') as file:
     layout_properties = yaml.safe_load(file)
 
 farm = Farm()
-farm.create_layout(layout_type="standard", layout_properties=layout_properties)
+farm.create_layout(layout_type="honeymooring", layout_properties=layout_properties)
 farm.complex_site(WIND_RESOURCE_FILE_PATH)
+
+# Adjusting turbines' location manually (move a bit to the west)
+farm.layout_x += 200
+farm.update_turbine_loc()
+
 aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
 print('Total power: %f GWh'%aep_with_wake)
 print('total wake loss:',wake_effects)
@@ -50,10 +55,13 @@ plt.xlabel("Easting [m]")
 plt.ylabel("Northing [m]")
 plt.title('Wake map for'+ f' {wdir} deg and {wsp} m/s')
 
+
+# layout visualization
+
 # mooring orientation
 N_m = 3  # number of mooring lines
 for i, _ in enumerate(farm.turbines):
-    farm.add_update_turbine_keys(i, "mori", 90)
+    farm.add_update_turbine_keys(i, "mori", 180 + 90 + layout_properties["farm properties"]["orientation"])
 
 # anchor visualization
 Ax = np.zeros([3, len(farm.layout_x)])
@@ -69,8 +77,6 @@ for i, turbine in enumerate(farm.turbines.values()):
         plt.plot(Ax[j, i], Ay[j, i], 'og', label="anchor" if i == 0 and j == 0 else None, markersize=1.0)
         plt.plot([Ax[j, i], turbine["x"]], [Ay[j, i], turbine["y"]], '-k', label="cable" if i == 0 and j == 0 else None, linewidth=0.5)
 
-# layout visualization
-# mooring line spread radius
 th = np.arange(0, 2.1 * np.pi, np.deg2rad(5))
 mpl.rcParams['font.family'] = 'Times New Roman'
 
@@ -91,5 +97,5 @@ plt.plot()
 plt.legend()
 plt.xlabel("Easting [m]")
 plt.ylabel("Northing [m]")
-plt.savefig(os.path.join(out_dir, f"Humboldt_C_NE_sq_eq_standard_spacing_cap_{farm.capacity:.2f}"
-                                  f"_SX{farm.spacing_x}_SY{farm.spacing_y}_ori{farm.orient:.2f}.pdf"))
+plt.savefig(os.path.join(out_dir, f"Humboldt_C_NE_sq_eq_honeymooring_spacing_cap_{farm.capacity:.2f}"
+                                  f"_SX{farm.spacing_x}_SY{farm.spacing_y}_ori{farm.orient:.2f}_reversed.pdf"))

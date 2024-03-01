@@ -7,7 +7,8 @@ farm properties:
     Dspacingy: 5  # [-]
     orientation: 0  # [deg]
     skew factor: 0  # [-]
-    mooring line spread radius: 1400  # [m]
+    turbine-boundary limit: 1400  # [m]
+    mooring line spread radius: 1400  # [m] 
     
     
     

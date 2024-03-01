@@ -9,19 +9,14 @@ from optuna.visualization import plot_rank
 
 
 def objective(trial):
-    SpaceX = trial.suggest_float('SpaceX', 4, 12)
-    SpaceY = trial.suggest_float('SpaceY', 4, 12)
+    farm_properties["capacity"] = 1000
     Orient = trial.suggest_float('Orient', 0, 45)
-    SkewFa = trial.suggest_float('SkewFa', -1, 1)
-    # MoorRa = trial.suggest_float('MoorRa', 780, 1400)
-    farm_properties["Dspacingx"] = SpaceX
-    farm_properties["Dspacingy"] = SpaceY
+    MoorRa = trial.suggest_float('MoorRa', 780, 1400)
     farm_properties["orientation"] = Orient
-    farm_properties["skew factor"] = SkewFa
-    # farm_properties["mooring line spread radius"] = MoorRa
+    farm_properties["mooring line spread radius"] = MoorRa
 
     try:
-        farm.standard_layout(farm_properties=farm_properties)
+        farm.honeymooring_layout(farm_properties=farm_properties)
         farm.complex_site(WIND_RESOURCE_FILE_PATH)
         aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
     except Exception as e:
@@ -49,17 +44,17 @@ os.makedirs(out_dir, exist_ok=True)
 layout_properties_file = os.path.join(this_dir,
                                       "data",
                                       "layout_input_files",
-                                      "Humboldt_NE_sq_eq_standard_spacing_min_bound_dist.yaml")
+                                      "Humboldt_NE_sq_eq_honeymooring.yaml")
 
 # Load initial layout properties
 with open(layout_properties_file, 'r') as file:
     layout_properties = yaml.safe_load(file)
 
 farm = Farm()
-farm.create_layout(layout_type="standard", layout_properties=layout_properties)
+farm.create_layout(layout_type="honeymooring", layout_properties=layout_properties)
 farm_properties = layout_properties["farm properties"]
 
-study_name = "04a_groupA"
+study_name = "04a_groupB"
 study = optuna.create_study(study_name=study_name,
                             direction="minimize",
                             sampler=optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True))

@@ -22,7 +22,9 @@ os.makedirs(out_dir, exist_ok=True)
 farm = Farm()
 farm.load_layout_from_file(LAYOUT_FILE_PATH)
 farm.WTG = IEA15MW()
-farm.populate_turbine_keys(msrs=np.zeros(len(farm.layout_x) + 1400))
+farm.populate_turbine_keys(msrs=np.zeros(len(farm.layout_x) + 1400),
+                           tbls=np.zeros(len(farm.layout_x) + 1400),
+                           moris=np.zeros(len(farm.layout_x)))
 farm.complex_site(WIND_RESOURCE_FILE_PATH)
 aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
 
