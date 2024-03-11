@@ -1,3 +1,4 @@
+from trtle import trtlepy
 from shapely.geometry import Point, Polygon
 import pandas as pd
 from data.turbines.iea15mw.iea15mw import IEA15MW
@@ -24,6 +25,7 @@ from py_wake.deficit_models import (NOJDeficit,
 
 class Farm:
     def __init__(self):
+        self.wind_resource_file = None
         self.turbines = {}
         self.max_capacity = None
         self.turbine_ct = None
@@ -35,6 +37,7 @@ class Farm:
         self.boundary_y = None
         self.layout_x = None
         self.layout_y = None
+        self.ori_opt1 = None
         self.WTG = None
         self.site = None
         self.wf_model = None
@@ -64,6 +67,10 @@ class Farm:
         # farm boundaries
         self.farm_boundaries(layout_properties["boundary_file_path"])
 
+        # energy resources
+        self.wind_resource_file = layout_properties["wind_resource_file"]
+
+        # create layout
         if layout_type == "standard":
             self.standard_layout(layout_properties["farm properties"])
         elif layout_type == "honeymooring":
@@ -123,14 +130,19 @@ class Farm:
 
         layout_x = np.zeros((len(x), len(y)))
         layout_y = np.zeros((len(x), len(y)))
+        ori_opt1 = +np.ones((len(x), len(y)))
         for i, xi in enumerate(x):
             for j, yi in enumerate(y):
                 layout_x[i, j] = xi
                 layout_y[i, j] = yi
+                if (i + j) % 2 == 0:
+                    ori_opt1[i, j] *= - ori_opt1[i, j]
+
 
         # Apply theta and skew factor to the generated points
         layout_x = layout_x.flatten()
         layout_y = layout_y.flatten()
+        ori_opt1 = ori_opt1.flatten()
         skewed_x_BL = [x + skw * y for x, y in zip(layout_x, layout_y)]
         skewed_y_BL = layout_y  # y-coordinates remain the same
 
@@ -154,7 +166,7 @@ class Farm:
         inside = self.polygon.contains_points(layout_points)
         layout_x = oriented_x[inside]
         layout_y = oriented_y[inside]
-
+        ori_opt1 = ori_opt1[inside]
         # mooring line spread calculation
         # Calculate the distance of each point to the polygon edge
         polygon = Polygon(zip(self.boundary_x, self.boundary_y))
@@ -185,10 +197,12 @@ class Farm:
             selected_turbines_sorted_back = sorted(selected_turbines_with_index, key=lambda x: x[2])
 
             # Extract the re-sorted x and y coordinates
-            layout_x, layout_y = zip(*[(x, y) for x, y, _ in selected_turbines_sorted_back])
+            layout_x, layout_y, ori_opt1 = zip(*[(x, y, ori_opt1[idx]) for x, y, idx in selected_turbines_sorted_back])
             layout_x, layout_y = np.array(layout_x), np.array(layout_y)
+        else:
+            ori_opt1 = [ori_opt1[idx] for _, _, _, idx in turbines_msr]
 
-        self.layout_x, self.layout_y = layout_x, layout_y
+        self.layout_x, self.layout_y, self.ori_opt1 = layout_x, layout_y, ori_opt1
         self.turbine_ct = len(layout_x)
         self.spacing_x = Dsx
         self.spacing_y = Dsy
@@ -311,6 +325,27 @@ class Farm:
         moris = np.zeros(len(self.layout_x))
         self.populate_turbine_keys(tbls, msrs, moris)
 
+    def cluster_layout(self, option=1):
+        if option == 1:
+            ori_opt1 = np.array(self.ori_opt1)
+        else:
+            ori_opt1 = -np.array(self.ori_opt1)
+
+        new_msr = np.sqrt((self.spacing_x/2)**2 + (self.spacing_y/2)**2) * self.WTG.diameter()
+        for i, turbine in enumerate(self.turbines.values()):
+            self.add_update_turbine_keys(i, "msr", new_msr)
+
+        for i, ori1 in enumerate(ori_opt1):
+            # Tetra Cluster (Option 1)
+            if ori1 == 1.0:
+                self.add_update_turbine_keys(i,
+                                             "mori",
+                                             np.rad2deg(np.arctan2(self.spacing_y, self.spacing_x)) + self.orient)
+            else:
+                self.add_update_turbine_keys(i,
+                                             "mori",
+                                             90+np.rad2deg(np.arctan2(self.spacing_x, self.spacing_y)) + self.orient)
+
     def populate_turbine_keys(self, tbls, msrs, moris):
         for idx, (x, y, tbl, msr, mori) in enumerate(zip(self.layout_x, self.layout_y, tbls, msrs, moris)):
             self.turbines[idx] = {
@@ -341,8 +376,12 @@ class Farm:
         water_depth = 800  # Hard-coded
         return water_depth
 
-    def complex_site(self, wind_resource_file_path):
-        wind_resources = WindResources(wind_resource_file_path)
+    def complex_site(self, wind_resource_file_path=None):
+        if wind_resource_file_path:
+            wind_resources = WindResources(wind_resource_file_path)
+        else:
+            wind_resources = WindResources(self.wind_resource_file_path)
+
         wd_array = np.array(wind_resources.df_wind["wd"].unique(), dtype=float)
         ws_array = np.array(wind_resources.df_wind["ws"].unique(), dtype=float)
         wd_grid, ws_grid = np.meshgrid(wd_array, ws_array, indexing="ij")
@@ -389,6 +428,108 @@ class Farm:
 
             return aep_without_wake, aep_with_wake, wake_effects
 
+    def collective_watch_circle(self, trtle, delta_theta=45):
+        wind_speed = self.WTG.rated_wind_speed
+        trtle.calculate_se_location()
+        degs = np.arange(0, 360, delta_theta)
+        dx = np.zeros(len(degs))
+        dy = np.zeros(len(degs))
+
+        print(f"Computing Watch Circle: delta_theta={delta_theta}")
+        for i, deg in enumerate(degs):
+            print(f"Relocation for deg={deg}")
+            wind_direction = deg
+            global_applied_load_origin, global_applied_force = self.compute_applied_load(wind_speed,
+                                                                                            wind_direction)
+            try:
+                trtle.calculate_th_location(global_applied_load_origin, global_applied_force, [0., 0., 0.])
+                dx[i] = trtle.th_location[0] - trtle.se_location[0]
+                dy[i] = trtle.th_location[1] - trtle.se_location[1]
+            except Exception as e:
+                print(f"could not compute thrust relocation at deg = {deg}")
+                print(e)
+                dx[i], dy[i] = 0.0, 0.0
+
+        for i, turbine in enumerate(self.turbines.values()):
+            # Create the rotation matrix
+            theta = np.deg2rad(turbine["mori"])
+            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)],
+                                        [np.sin(theta), np.cos(theta)]])
+
+            # Stack your coordinates in a (2, N) array where N is the number of points
+            points = np.vstack((dx, dy))
+            translated_points = points - np.array([[0.0], [0.0]])
+
+            # Apply the rotation matrix to all points
+            rotated_translated_points = np.dot(rotation_matrix, translated_points)
+            rotated_points = rotated_translated_points + np.array([[0.0], [0.0]])
+
+            # Split the rotated points back into x and y arrays
+            oriented_x = rotated_points[0, :]
+            oriented_y = rotated_points[1, :]
+            self.add_update_turbine_keys(i, "wc_x", oriented_x)
+            self.add_update_turbine_keys(i, "wc_y", oriented_y)
+            self.add_update_turbine_keys(i, "wc_d", degs)
+
+    def compute_applied_load(self, wind_speed, wind_direction):
+        rho = 1.225
+        swept_area = 1 / 4 * np.pi * self.WTG.diameter() ** 2
+        CT = np.interp(wind_speed, self.WTG.powerCtFunction.ws_tab, self.WTG.powerCtFunction.power_ct_tab[1])
+        thrust_amplitude = 0.5 * rho * swept_area * CT * wind_speed ** 2 / 1e3  # kN
+        wind_direction_rad = np.deg2rad(wind_direction)
+        global_applied_load_origin = [0., 0., self.WTG.hub_height()]  # m
+        global_applied_force = [thrust_amplitude * np.sin(wind_direction_rad),
+                                thrust_amplitude * np.cos(wind_direction_rad), 0.]  # kN
+
+        return global_applied_load_origin, global_applied_force
+
+    def anchor_position(self, N_m):
+        Ax = np.zeros([N_m, len(self.layout_x)])
+        Ay = np.zeros([N_m, len(self.layout_x)])
+        # Anchor Positions
+        for i, turbine in enumerate(self.turbines.values()):
+            for j in range(N_m):
+                Ax[j, i] = turbine["x"] + turbine["msr"] * np.cos(
+                    np.deg2rad(turbine["mori"] + 360 / N_m * j))
+                Ay[j, i] = turbine["y"] + turbine["msr"] * np.sin(
+                    np.deg2rad(turbine["mori"] + 360 / N_m * j))
+                self.add_update_turbine_keys(i, f"anchor{j}_x", Ax[j, i])
+                self.add_update_turbine_keys(i, f"anchor{j}_y", Ay[j, i])
+
+    def anchor_count(self, N_m):
+        anchor_dict = {}  # Dictionary to hold anchor positions and counts
+
+        # Iterate over turbines to collect anchor positions
+        for i, turbine in enumerate(self.turbines.values()):
+            for j in range(N_m):
+                # Retrieve the anchor position from the turbine data
+                ax = np.round(turbine[f"anchor{j}_x"], 2)
+                ay = np.round(turbine[f"anchor{j}_y"], 2)
+
+                if ax is not None and ay is not None:
+                    anchor_pos = (ax, ay)
+
+                    # Increment the count for this anchor position, or add it to the dict if not already present
+                    if anchor_pos in anchor_dict:
+                        anchor_dict[anchor_pos] += 1
+                    else:
+                        anchor_dict[anchor_pos] = 1
+
+        # Categorize anchors based on how many turbines they are shared with
+        shared_anchor_dict = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: []}
+        for anchor_pos, count in anchor_dict.items():
+            if count in shared_anchor_dict:
+                shared_anchor_dict[count].append(anchor_pos)
+
+        unique_anchor_count = len(anchor_dict)  # Number of unique anchor positions
+        print(f"Anchor count: {unique_anchor_count}")
+
+        sum_by_category = {}
+        for count, anchors in shared_anchor_dict.items():
+            sum_by_category[count] = len(anchors)  # Count the number of anchors in each category
+            print(f"Sum of anchors shared by {count} turbine(s): {sum_by_category[count]}")
+
+        return shared_anchor_dict
 
 class WindResources:
 

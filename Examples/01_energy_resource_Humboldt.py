@@ -15,7 +15,7 @@ NSECTOR = 180
 
 # Directory manager
 this_dir = os.getcwd()
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 
 # Create TEST directory
@@ -23,7 +23,7 @@ out_dir = os.path.join(this_dir, example_out_dir, TEST_NAME)
 os.makedirs(out_dir, exist_ok=True)
 
 # Load wind data
-df = pd.read_excel(os.path.join(this_dir, "data", "energy_resources", "Humboldt", "row_data.xlsx"))
+df = pd.read_excel(os.path.join(this_dir, "..", "data", "energy_resources", "Humboldt", "row_data.xlsx"))
 
 # Calculate mean wind components
 u = -np.mean((df['u1'], df['u2'], df['u3']), axis=0)

@@ -22,7 +22,7 @@ def objective(trial):
 
     try:
         farm.standard_layout(farm_properties=farm_properties)
-        farm.complex_site(WIND_RESOURCE_FILE_PATH)
+        farm.complex_site()
         aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
     except Exception as e:
         print(f'prune this trial due to error: {e}')
@@ -31,15 +31,15 @@ def objective(trial):
     return wake_effects
 
 """
-In this example, a wind farm is created based on a boundary file, a list of farm-level properties and the turbine used.
-(taking into consideration mooring line spread)
+In this example, 
+- farm-level properties are optimized.
 """
+this_dir = os.getcwd()
 
 TEST_NAME = '04_opt_wf_standard_spacing'
-WIND_RESOURCE_FILE_PATH = os.path.join("data", "energy_resources", "Humboldt", "wind_resource_Humboldt_nsector=180.yaml")
 # Directory manager
-this_dir = os.getcwd()
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 
 # Create TEST directory
@@ -47,9 +47,8 @@ out_dir = os.path.join(this_dir, example_out_dir, TEST_NAME)
 os.makedirs(out_dir, exist_ok=True)
 
 layout_properties_file = os.path.join(this_dir,
-                                      "data",
-                                      "layout_input_files",
-                                      "Humboldt_NE_sq_eq_standard_spacing_min_bound_dist.yaml")
+                                      "input_files",
+                                      "Humboldt_NE_sq_eq_standard.yaml")
 
 # Load initial layout properties
 with open(layout_properties_file, 'r') as file:

@@ -7,14 +7,14 @@ from data.turbines.iea15mw.iea15mw import IEA15MW
 This example creates a wind farm via importing the layout from an external file and computes the wake effects and AEP
 excluding watch circle computation.
 """
+this_dir = os.getcwd()
 
 TEST_NAME = "02_wind_farm_model_Humboldt_exc_wc"
-WIND_RESOURCE_FILE_PATH = os.path.join("data", "energy_resources", "Humboldt", "wind_resource_Humboldt_nsector=180.yaml")
-LAYOUT_FILE_PATH = os.path.join("data", "layouts", "_Humboldt_ex.csv")
+WIND_RESOURCE_FILE_PATH = os.path.join(this_dir, "..", "data", "energy_resources", "Humboldt", "wind_resource_Humboldt_nsector=180.yaml")
+LAYOUT_FILE_PATH = os.path.join(this_dir, "..", "data", "layouts", "_Humboldt_ex.csv")
 
 # Directory manager
-this_dir = os.getcwd()
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 out_dir = os.path.join(this_dir, example_out_dir, TEST_NAME)
 os.makedirs(out_dir, exist_ok=True)

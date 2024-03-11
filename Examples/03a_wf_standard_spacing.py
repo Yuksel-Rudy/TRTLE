@@ -10,11 +10,10 @@ In this example, a wind farm is created based on a boundary file, a list of farm
 (taking into consideration mooring line spread)
 """
 
-TEST_NAME = '03_wf_standard_spacing'
-WIND_RESOURCE_FILE_PATH = os.path.join("data", "energy_resources", "Humboldt", "wind_resource_Humboldt_nsector=180.yaml")
-# Directory manager
 this_dir = os.getcwd()
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+TEST_NAME = '03_wf_standard_spacing'
+# Directory manager
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 
 # Create TEST directory
@@ -22,9 +21,8 @@ out_dir = os.path.join(this_dir, example_out_dir, TEST_NAME)
 os.makedirs(out_dir, exist_ok=True)
 
 layout_properties_file = os.path.join(this_dir,
-                                      "data",
-                                      "layout_input_files",
-                                      "Humboldt_NE_sq_eq_standard_OPT2.yaml")
+                                      "input_files",
+                                      "Humboldt_NE_sq_eq_standard_OPT.yaml")
 
 # Load initial layout properties
 with open(layout_properties_file, 'r') as file:
@@ -32,10 +30,10 @@ with open(layout_properties_file, 'r') as file:
 
 farm = Farm()
 farm.create_layout(layout_type="standard", layout_properties=layout_properties)
-farm.complex_site(WIND_RESOURCE_FILE_PATH)
+farm.complex_site()
 aep_without_wake, aep_with_wake, wake_effects = farm.wake_model()
-print('Total power: %f GWh'%aep_with_wake)
-print('total wake loss:',wake_effects)
+print(f"AEP: {aep_with_wake:.2f} GWh")
+print(f"total wake loss:{wake_effects:.2f}%")
 
 # wake visualization
 wsp = 9.0
@@ -53,21 +51,15 @@ plt.title('Wake map for'+ f' {wdir} deg and {wsp} m/s')
 # mooring orientation
 N_m = 3  # number of mooring lines
 for i, _ in enumerate(farm.turbines):
-    farm.add_update_turbine_keys(i, "mori", 90)
+    farm.add_update_turbine_keys(i, "mori", 90.0)
 
-# anchor visualization
-Ax = np.zeros([3, len(farm.layout_x)])
-Ay = np.zeros([3, len(farm.layout_x)])
-# Anchor Positions
+farm.anchor_position(N_m)
 for i, turbine in enumerate(farm.turbines.values()):
     for j in range(N_m):
-        Ax[j, i] = turbine["x"] + turbine["msr"] * np.cos(
-            np.deg2rad(turbine["mori"] + 360/N_m * j))
-        Ay[j, i] = turbine["y"] + turbine["msr"] * np.sin(
-            np.deg2rad(turbine["mori"] + 360/N_m * j))
-
-        plt.plot(Ax[j, i], Ay[j, i], 'og', label="anchor" if i == 0 and j == 0 else None, markersize=1.0)
-        plt.plot([Ax[j, i], turbine["x"]], [Ay[j, i], turbine["y"]], '-k', label="cable" if i == 0 and j == 0 else None, linewidth=0.5)
+        plt.plot(turbine[f"anchor{j}_x"], turbine[f"anchor{j}_y"], 'og', markersize=1.0)
+        plt.plot([turbine[f"anchor{j}_x"], turbine["x"]], [turbine[f"anchor{j}_y"], turbine["y"]], '-k',
+                 label="mooring line" if i == 0 and j == 0 else None, linewidth=1.0)
+shared_anchor_dict = farm.anchor_count(N_m)
 
 # layout visualization
 # mooring line spread radius

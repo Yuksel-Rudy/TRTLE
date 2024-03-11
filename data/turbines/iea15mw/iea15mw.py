@@ -18,6 +18,7 @@ class IEA15MW(WindTurbine):
         WindTurbine.__init__(
             self,
             'IEA15MW',
+            rated_wind_speed=10.8,
             diameter=diameter,
             hub_height=150.0,
             powerCtFunction=PowerCtTabular(u, p * 1000, 'w', ct_curve[:, 1], ws_cutin=3, ws_cutout=25,

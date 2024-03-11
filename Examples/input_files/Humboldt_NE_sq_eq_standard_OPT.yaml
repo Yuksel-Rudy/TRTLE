@@ -1,0 +1,15 @@
+name: Humboldt NE Square Equivalent OPTIMIZED (Standard Spacing)
+turbine: "IEA15MW"
+boundary_file_path: "../data/layouts/farm_boundary/Humboldt_C_NE_sq_eq.csv"
+wind_resource_file: "../data/energy_resources/Humboldt/wind_resource_Humboldt_nsector=180.yaml"
+farm properties:
+    capacity: 1000  # [MW]
+    Dspacingx: 10.111  # [-]
+    Dspacingy: 4.54  # [-]
+    orientation: 16.292  # [deg]
+    skew factor: -0.307  # [-]
+    turbine-boundary limit: 788.5481187260912  # [m] - taken from NREL paper: semi-taut 0.35 × water depth + 500 m
+    mooring line spread radius: 1400  # [m] 
+    
+    
+    

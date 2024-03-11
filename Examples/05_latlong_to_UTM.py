@@ -9,12 +9,12 @@ from trtle.farmpy import Farm
 
 TEST_NAME = "05_latlong_to_UTM"
 this_dir = os.getcwd()
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 out_dir = os.path.join(this_dir, example_out_dir, TEST_NAME)
 os.makedirs(out_dir, exist_ok=True)
 
-latlong_file = os.path.join("data", "layouts", "Humboldt_OptionC", "SW_latlong.csv")
+latlong_file = os.path.join(this_dir, "..", "data", "layouts", "Humboldt_OptionC", "SW_latlong.csv")
 latlong = pd.read_csv(latlong_file)
 plt.figure()
 plt.scatter(latlong['long'], latlong['lat'])

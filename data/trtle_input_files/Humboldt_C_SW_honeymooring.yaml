@@ -1,0 +1,15 @@
+name: TRTLE Input file for Humboldt Option C SW Honeymooring Design
+Env:
+    water_depth: 800
+Moor:
+  moornum: 3
+  phi: 180 # 270: bow cable fairlead-to-anchor points south, 0: bow cable fairlead-to-anchor points east
+  fairlead_distance:
+    - horizontal: 58.0
+    - vertical: -14.0 # relative to seawater level
+  anchor_distance:
+    - horizontal: 1060.67
+    - vertical: 0.0 # relative to seabed   
+  beta: 0.21
+  line_type: Spencer 2
+  target_segment_length: 25.0
