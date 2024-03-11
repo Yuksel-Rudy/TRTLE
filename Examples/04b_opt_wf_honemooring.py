@@ -34,7 +34,7 @@ this_dir = os.getcwd()
 TEST_NAME = '04_opt_wf_standard_spacing'
 # Directory manager
 
-example_out_dir = os.path.join(this_dir, "Examples", "examples_out")
+example_out_dir = os.path.join(this_dir, "examples_out")
 os.makedirs(example_out_dir, exist_ok=True)
 
 # Create TEST directory
