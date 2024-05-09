@@ -111,12 +111,11 @@ class TrtleFlex(Model):
         self.create_moor()
 
         # clumps
-        for clump in self.clumpings:
-            self.DestroyObject(clump)
-
-        self.clumpings = []
-
         if self.clump:
+            for clump in self.clumpings:
+                self.DestroyObject(clump)
+
+            self.clumpings = []
             self.create_clump()
 
         if self.umb:

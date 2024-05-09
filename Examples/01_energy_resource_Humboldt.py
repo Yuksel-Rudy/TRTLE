@@ -11,7 +11,7 @@ This example creates the .yaml file needed to compute wind resources of the site
 """
 
 TEST_NAME = '01_energy_resource_Humboldt'
-NSECTOR = 180
+NSECTOR = 20
 
 # Directory manager
 this_dir = os.getcwd()
@@ -37,6 +37,7 @@ speed_150 = speed_100 * (150/100) ** 0.105
 direction = (np.arctan2(u, v) * 180 / np.pi) % 360
 
 # Wind rose plot setup
+plt.rcParams.update({'font.size': 18})
 plt.rcParams["font.family"] = "Times New Roman"
 
 # Create and display the wind rose plot
@@ -44,7 +45,7 @@ ax = WindroseAxes.from_ax()
 ax.bar(direction, speed_150, normed=True,
        bins=np.arange(3, 25, 2), opening=1.0, edgecolor='black', nsector=NSECTOR)
 plt.show()
-ax.set_legend()
+# ax.set_legend()
 plt.savefig(os.path.join(out_dir, "wind_rose.pdf"))
 
 table = ax._info['table']
@@ -52,21 +53,21 @@ direction_bins = ax._info['dir']
 speed_bins = ax._info['bins']
 
 new_directions = np.linspace(0, 360, NSECTOR, endpoint=False)
-new_table = np.zeros((table.shape[0], NSECTOR))
-for i in range(table.shape[0]):
-    interp_func = interp1d(direction_bins, table[i, :], kind='linear', fill_value="extrapolate")
-
-    # Interpolate frequencies for the new directional array
-    new_table[i] = interp_func(new_directions)
+# new_table = np.zeros((table.shape[0], NSECTOR))
+# for i in range(table.shape[0]):
+#     interp_func = interp1d(direction_bins, table[i, :], kind='linear', fill_value="extrapolate")
+#
+#     # Interpolate frequencies for the new directional array
+#     new_table[i, :] = interp_func(new_directions)
 
 # Frequency for each directional bin
-directional_frequency = np.sum(new_table, axis=0)/100
+directional_frequency = np.sum(table, axis=0)/100
 
 
 # Frequency of speed for each directional bin
 speed_frequency_per_direction_bin = np.zeros((len(new_directions), len(speed_bins) - 1))
 for i in range(len(new_directions)):
-    speed_frequency_per_direction_bin[i, :] = new_table[:, i]/np.sum(new_table[:, i])
+    speed_frequency_per_direction_bin[i, :] = table[:, i]/np.sum(table[:, i])
 
 
 direction_bins_py = [float(value) for value in new_directions]
@@ -96,3 +97,19 @@ yaml_data = {
 file_path = os.path.join(out_dir, f"wind_resource_Humboldt_nsector={NSECTOR}.yaml")  # Adjust the path as needed
 with open(file_path, 'w') as file:
     yaml.dump(yaml_data, file, default_flow_style=None, width=float("inf"))
+
+
+# Current Data
+# df = pd.read_excel(os.path.join(this_dir, "..", "data", "energy_resources", "Humboldt", "1_yr_current.xlsx"))
+# df.columns = ['Date', 'Speed', 'Dir']
+#
+# # Current rose plot setup
+# plt.rcParams["font.family"] = "Times New Roman"
+#
+# # Create and display the current rose plot
+# ax = WindroseAxes.from_ax()
+# ax.bar(df['Dir'], df['Speed'], normed=True,
+#        bins=np.arange(0.0, df['Speed'].max(), df['Speed'].max()/10), opening=1.0, edgecolor='black', nsector=NSECTOR)
+# plt.show()
+# ax.set_legend()
+# plt.savefig(os.path.join(out_dir, "current_rose.pdf"))
