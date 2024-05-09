@@ -1,0 +1,1 @@
+TRTLE stands for Turbine Repositioning Technique for Layout Economics. TRTLE allows wind farm developers to explore floating offshore wind farm mooring configurations to maximize revenue and minimize footprint on the seabed/water column. 
