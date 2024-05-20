@@ -118,7 +118,10 @@ class Farm:
         msr = farm_properties["mooring line spread radius"]  # [m]
         tbl = farm_properties["turbine-boundary limit"]  # [m]
 
-        new_msr = np.sqrt((Dsx / 2) ** 2 + (Dsy / 2) ** 2) * self.WTG.diameter()
+        # TODO: why was this new_msr here?
+
+        # new_msr = np.sqrt((Dsx / 2) ** 2 + (Dsy / 2) ** 2) * self.WTG.diameter()
+        new_msr = msr
 
         pow = self.WTG.power(ws=20) / 1e6  # [MW]
         ori_r = np.deg2rad(ori)  # [rad]
@@ -135,8 +138,8 @@ class Farm:
 
         spacing_x = Dsx * self.WTG.diameter()
         spacing_y = Dsy * self.WTG.diameter()
-        x = np.arange(smallest_x/magnify, largest_x*magnify, spacing_x)
-        y = np.arange(smallest_y/magnify, largest_y*magnify, spacing_y)
+        x = np.arange(smallest_x / magnify, largest_x * magnify, spacing_x)
+        y = np.arange(smallest_y / magnify, largest_y * magnify, spacing_y)
 
         layout_x = np.zeros((len(x), len(y)))
         layout_y = np.zeros((len(x), len(y)))
@@ -155,7 +158,6 @@ class Farm:
                     rowwise[i, j] *= - rowwise[i, j]
                 if i % 2 == 0:
                     colwise[i, j] *= - colwise[i, j]
-
 
         # Apply theta and skew factor to the generated points
         layout_x = layout_x.flatten()
@@ -262,7 +264,8 @@ class Farm:
         inside_array = np.array(inside)
         inside_reshaped = inside_array.reshape((self.turbine_ct, N_m))
         turbines_to_keep = inside_reshaped.all(axis=1)
-        layout_x, layout_y = np.array(layout_x)[turbines_to_keep].tolist(), np.array(layout_y)[turbines_to_keep].tolist()
+        layout_x, layout_y = np.array(layout_x)[turbines_to_keep].tolist(), np.array(layout_y)[
+            turbines_to_keep].tolist()
         self.layout_x = layout_x
         self.layout_y = layout_y
         self.chesswise = np.array(self.chesswise)[turbines_to_keep].tolist()
@@ -329,7 +332,7 @@ class Farm:
             if j % 4 == 0:
                 colwise2[:, j] *= - colwise2[:, j]
 
-            if (j+1) % 4 == 0:
+            if (j + 1) % 4 == 0:
                 colwise22[:, j] *= - colwise22[:, j]
 
         for i in range(2 * len(x_even)):
@@ -337,7 +340,7 @@ class Farm:
                 rowwise[i, :] *= -rowwise[i, :]
             if i % 4 == 0:
                 rowwise2[i, :] *= -rowwise2[i, :]
-            if (i+1) % 4 == 0:
+            if (i + 1) % 4 == 0:
                 rowwise22[i, :] *= -rowwise22[i, :]
 
         for i in range(2 * len(x_even)):
@@ -428,7 +431,8 @@ class Farm:
 
             # Extract the re-sorted x and y coordinates
             layout_x, layout_y, chesswise, rowwise, colwise, rowwise2, colwise2, rowwise22, colwise22 = \
-                zip(*[(x, y, chesswise[idx], rowwise[idx], colwise[idx], rowwise2[idx], colwise2[idx], rowwise22[idx], colwise22[idx])
+                zip(*[(x, y, chesswise[idx], rowwise[idx], colwise[idx], rowwise2[idx], colwise2[idx], rowwise22[idx],
+                       colwise22[idx])
                       for x, y, idx in selected_turbines_sorted_back])
             layout_x, layout_y = np.array(layout_x), np.array(layout_y)
         else:
@@ -466,7 +470,8 @@ class Farm:
         inside_array = np.array(inside)
         inside_reshaped = inside_array.reshape((self.turbine_ct, N_m))
         turbines_to_keep = inside_reshaped.all(axis=1)
-        layout_x, layout_y = np.array(layout_x)[turbines_to_keep].tolist(), np.array(layout_y)[turbines_to_keep].tolist()
+        layout_x, layout_y = np.array(layout_x)[turbines_to_keep].tolist(), np.array(layout_y)[
+            turbines_to_keep].tolist()
         self.layout_x = layout_x
         self.layout_y = layout_y
         self.chesswise = np.array(self.chesswise)[turbines_to_keep].tolist()
@@ -505,11 +510,13 @@ class Farm:
                 else:
                     self.add_update_turbine_keys(i,
                                                  "mori",
-                                                 90 + np.rad2deg(np.arctan2(self.spacing_x, self.spacing_y)) + self.orient)
+                                                 90 + np.rad2deg(
+                                                     np.arctan2(self.spacing_x, self.spacing_y)) + self.orient)
         if N_m == 3:
             if mooring_orientation == "DMO_03":  # rowwise variation
                 for i, ori3 in enumerate(self.rowwise):
                     self.add_update_turbine_keys(i, "mori", self.orient if ori3 == 1 else self.orient + 180)  #
+
     def mooring_honeymooring_layout(self, N_m, mooring_orientation="DMO_01"):
         if N_m == 2:
             oris = np.ones_like(self.chesswise)
@@ -532,11 +539,11 @@ class Farm:
                 if ori == 1.0:
                     self.add_update_turbine_keys(i,
                                                  "mori",
-                                                 (270 + self.orient + 360/3) % 360)
+                                                 (270 + self.orient + 360 / 3) % 360)
                 elif ori == -1.0:
                     self.add_update_turbine_keys(i,
                                                  "mori",
-                                                 (270 + self.orient - 360/3) % 360)
+                                                 (270 + self.orient - 360 / 3) % 360)
         elif N_m == 3:
             for i, _ in enumerate(self.turbines):
                 self.add_update_turbine_keys(i, "mori", (270 + self.orient) % 360)
@@ -850,12 +857,11 @@ class Farm:
                  (np.pi * (turbine["WTG"].diameter() / 2) ** 2) * wind_speed ** 2 / 1e3  # kN
         CT_reduce = thrust / turbine["thrust_max"]
         new_location_x = turbine["se_location"][0] + (
-                    np.interp(wind_direction, turbine["wc_d"], turbine["wc_x"]) * CT_reduce)
+                np.interp(wind_direction, turbine["wc_d"], turbine["wc_x"]) * CT_reduce)
         new_location_y = turbine["se_location"][1] + (
-                    np.interp(wind_direction, turbine["wc_d"], turbine["wc_y"]) * CT_reduce)
+                np.interp(wind_direction, turbine["wc_d"], turbine["wc_y"]) * CT_reduce)
 
         return new_location_x, new_location_y
-
 
 
 class WindResources:
