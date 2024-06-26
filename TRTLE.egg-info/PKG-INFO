@@ -7,13 +7,14 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: pandas
 Requires-Dist: matplotlib
-Requires-Dist: numpy
+Requires-Dist: numpy==1.26.4
 Requires-Dist: PyYAML
 Requires-Dist: xarray
 Requires-Dist: shapely
 Requires-Dist: scipy
 Requires-Dist: pytest
 Requires-Dist: pywake
+Requires-Dist: py_wake
 Requires-Dist: OrcFxAPI
 Requires-Dist: autograd
 Requires-Dist: tqdm

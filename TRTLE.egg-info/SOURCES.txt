@@ -7,4 +7,3 @@ TRTLE.egg-info/requires.txt
 TRTLE.egg-info/top_level.txt
 trtle/__init__.py
 trtle/farmpy.py
-trtle/trtlepy.py

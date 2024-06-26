@@ -1,12 +1,13 @@
 pandas
 matplotlib
-numpy
+numpy==1.26.4
 PyYAML
 xarray
 shapely
 scipy
 pytest
 pywake
+py_wake
 OrcFxAPI
 autograd
 tqdm
