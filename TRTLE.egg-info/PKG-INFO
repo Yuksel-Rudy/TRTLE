@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: TRTLE
+Version: 0.0.1
+Summary: Turbine Repositioning Technique for Layout Economics (TRTLE)
+Author-email: Rudy Alkarem <rudy.alkarem@nrel.gov>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: PyYAML
+Requires-Dist: xarray
+Requires-Dist: shapely
+Requires-Dist: scipy
+Requires-Dist: pytest
+Requires-Dist: pywake
+Requires-Dist: OrcFxAPI
+Requires-Dist: autograd
+Requires-Dist: tqdm
+Requires-Dist: setuptools
+Requires-Dist: pyproj
+Requires-Dist: optuna
+Requires-Dist: windrose
+
+TRTLE stands for Turbine Repositioning Technique for Layout Economics. TRTLE allows wind farm developers to explore floating offshore wind farm mooring configurations to maximize revenue and minimize footprint on the seabed/water column. 

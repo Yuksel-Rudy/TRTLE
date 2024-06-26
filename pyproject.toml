@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'TRTLE'
+description = 'Turbine Repositioning Technique for Layout Economics (TRTLE)'
+authors = [
+    {name = "Rudy Alkarem", email = "rudy.alkarem@nrel.gov"},
+]
+version = '0.0.1'
+readme = "README.md"
+requires-python = ">=3.10"
+# Ensure the LICENSE file exists or remove this line
+dependencies = [
+    'pandas',
+    'matplotlib',
+    'numpy',
+    'PyYAML',
+    'xarray',
+    'shapely',
+    'scipy',
+    'pytest',
+    'pywake',
+    'OrcFxAPI',
+    'autograd',
+    'tqdm',
+    'setuptools',
+    'pyproj',
+    'optuna',
+    'windrose'
+]
+
+[tool.setuptools]
+packages = ["trtle"]

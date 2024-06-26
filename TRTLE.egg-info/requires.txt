@@ -1,0 +1,16 @@
+pandas
+matplotlib
+numpy
+PyYAML
+xarray
+shapely
+scipy
+pytest
+pywake
+OrcFxAPI
+autograd
+tqdm
+setuptools
+pyproj
+optuna
+windrose
