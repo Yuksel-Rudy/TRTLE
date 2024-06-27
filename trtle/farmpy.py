@@ -1,6 +1,6 @@
 from shapely.geometry import Point, Polygon
 import pandas as pd
-from data.turbines.iea15mw.iea15mw import IEA15MW
+from trtle.turbines.iea15mw.iea15mw import IEA15MW
 import matplotlib.path as mpath
 import yaml
 import numpy as np
@@ -50,7 +50,7 @@ class Farm:
         self.layout_x = list(df["layout_x"])
         self.layout_y = list(df["layout_y"])
 
-    def create_layout(self, layout_type, layout_properties, mooring_orientation, trtle, capacity_constraint=True, boundary=None):
+    def create_layout(self, layout_type, layout_properties, mooring_orientation, trtle, capacity_constraint=True):
         # turbine selection
         turbine_type = layout_properties["turbine"]
 
@@ -59,7 +59,7 @@ class Farm:
             self.WTG = IEA15MW()
 
         # farm boundaries
-        self.farm_boundaries(layout_properties["boundary_file_path"], boundary)
+        self.farm_boundaries(layout_properties["boundary_file_path"])
 
         # energy resources
         self.wind_resource_file = layout_properties["wind_resource_file"]
@@ -73,10 +73,8 @@ class Farm:
             raise ValueError("The layout type specified is not supported!")
         pass
 
-    def farm_boundaries(self, boundary_file_path, boundary=None):
-        if boundary is None:
-            boundary = pd.read_csv(boundary_file_path)
-
+    def farm_boundaries(self, boundary_file_path):
+        boundary = pd.read_csv(boundary_file_path)
         self.boundary_x = list(boundary['boundary_x'])
         self.boundary_y = list(boundary['boundary_y'])
         self.oboundary_x = list(boundary['boundary_x'])
@@ -111,7 +109,8 @@ class Farm:
         # new_msr = np.sqrt((Dsx / 2) ** 2 + (Dsy / 2) ** 2) * self.WTG.diameter()
         new_msr = msr
 
-        pow = self.WTG.power(ws=20) / 1e6  # [MW]
+        pow = self.WTG.rated_power / 1e6  # [MW]
+        print(pow)
         ori_r = np.deg2rad(ori)  # [rad]
         turbine_ct = int(round(cap / pow, 0))
 
